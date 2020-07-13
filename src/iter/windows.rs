@@ -3,7 +3,8 @@ use std::ptr::null_mut;
 use winapi::shared::{winerror::ERROR_SUCCESS, ws2def::AF_UNSPEC};
 use {MacAddress, MacAddressError};
 use iter::Interface;
-use std::ffi::CStr;
+use std::ffi::OsString;
+use std::os::windows::ffi::OsStringExt;
 
 const GAA_FLAG_NONE: ::os::win::ULONG = 0x0000;
 
@@ -72,10 +73,17 @@ impl Iterator for InterfaceIterator {
             let bytes = unsafe { *((&(*self.ptr).PhysicalAddress).as_ptr() as *const [u8; 6]) };
             self.ptr = unsafe { (*self.ptr).Next };
 
-            let adapter_name = unsafe { CStr::from_ptr((*self.ptr).AdapterName).to_str() };
+            let adapter_name = unsafe { u16_ptr_to_string((*self.ptr).FriendlyName).into_string() };
             if adapter_name.is_err() { return None; }
 
-            Some(Interface::new(adapter_name.unwrap().into(), MacAddress::new(bytes)))
+            Some(Interface::new(adapter_name.unwrap(), MacAddress::new(bytes)))
         }
     }
+}
+
+unsafe fn u16_ptr_to_string(ptr: *const u16) -> OsString {
+    let len = (0..).take_while(|&i| *ptr.offset(i) != 0).count();
+    let slice = std::slice::from_raw_parts(ptr, len);
+
+    OsString::from_wide(slice)
 }
