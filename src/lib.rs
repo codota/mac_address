@@ -21,7 +21,7 @@ mod os;
 mod os;
 
 mod iter;
-pub use iter::MacAddressIterator;
+pub use iter::InterfaceIterator;
 
 /// Possible errors when attempting to retrieve a MAC address.
 ///

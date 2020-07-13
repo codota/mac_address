@@ -1,35 +1,36 @@
 use nix::{ifaddrs, sys::socket::SockAddr};
 use {MacAddress, MacAddressError};
+use iter::Interface;
 
 /// An iterator over all available MAC addresses on the system.
-pub struct MacAddressIterator {
+pub struct InterfaceIterator {
     iter: std::iter::FilterMap<
         ifaddrs::InterfaceAddressIterator,
-        fn(ifaddrs::InterfaceAddress) -> Option<MacAddress>,
+        fn(ifaddrs::InterfaceAddress) -> Option<Interface>,
     >,
 }
 
-impl MacAddressIterator {
-    /// Creates a new `MacAddressIterator`.
-    pub fn new() -> Result<MacAddressIterator, MacAddressError> {
+impl InterfaceIterator {
+    /// Creates a new `InterfaceIterator`.
+    pub fn new() -> Result<InterfaceIterator, MacAddressError> {
         Ok(Self {
             iter: ifaddrs::getifaddrs()?.filter_map(filter_macs),
         })
     }
 }
 
-fn filter_macs(intf: ifaddrs::InterfaceAddress) -> Option<MacAddress> {
+fn filter_macs(intf: ifaddrs::InterfaceAddress) -> Option<Interface> {
     if let SockAddr::Link(link) = intf.address? {
-        Some(MacAddress::new(link.addr()))
+        Some(Interface::new(intf.interface_name, MacAddress::new(link.addr())))
     } else {
         None
     }
 }
 
-impl Iterator for MacAddressIterator {
-    type Item = MacAddress;
+impl Iterator for InterfaceIterator {
+    type Item = Interface;
 
-    fn next(&mut self) -> Option<MacAddress> {
+    fn next(&mut self) -> Option<Interface> {
         self.iter.next()
     }
 }

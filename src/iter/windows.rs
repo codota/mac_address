@@ -2,19 +2,21 @@ use os::win::{GetAdaptersAddresses, PIP_ADAPTER_ADDRESSES};
 use std::ptr::null_mut;
 use winapi::shared::{winerror::ERROR_SUCCESS, ws2def::AF_UNSPEC};
 use {MacAddress, MacAddressError};
+use iter::Interface;
+use std::ffi::CStr;
 
 const GAA_FLAG_NONE: ::os::win::ULONG = 0x0000;
 
 /// An iterator over all available MAC addresses on the system.
-pub struct MacAddressIterator {
+pub struct InterfaceIterator {
     #[allow(dead_code)]
     buffer: Vec<u8>,
     ptr: PIP_ADAPTER_ADDRESSES,
 }
 
-impl MacAddressIterator {
-    /// Creates a new `MacAddressIterator`.
-    pub fn new() -> Result<MacAddressIterator, MacAddressError> {
+impl InterfaceIterator {
+    /// Creates a new `InterfaceIterator`.
+    pub fn new() -> Result<InterfaceIterator, MacAddressError> {
         let mut buf_len = 0;
 
         unsafe {
@@ -58,10 +60,10 @@ impl MacAddressIterator {
     }
 }
 
-impl Iterator for MacAddressIterator {
-    type Item = MacAddress;
+impl Iterator for InterfaceIterator {
+    type Item = Interface;
 
-    fn next(&mut self) -> Option<MacAddress> {
+    fn next(&mut self) -> Option<Interface> {
         if self.ptr.is_null() {
             None
         } else {
@@ -70,7 +72,10 @@ impl Iterator for MacAddressIterator {
             let bytes = unsafe { *((&(*self.ptr).PhysicalAddress).as_ptr() as *const [u8; 6]) };
             self.ptr = unsafe { (*self.ptr).Next };
 
-            Some(MacAddress::new(bytes))
+            let adapter_name = unsafe { CStr::from_ptr((*self.ptr).AdapterName).to_str() };
+            if adapter_name.is_err() { return None; }
+
+            Some(Interface::new(adapter_name.unwrap().into(), MacAddress::new(bytes)))
         }
     }
 }
